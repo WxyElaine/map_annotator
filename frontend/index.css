@@ -15,6 +15,8 @@ body {
 button {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
+    padding: 0.5em 0.5em;
+    font-weight: bold;
 }
 
 button:hover {
@@ -59,7 +61,8 @@ button.disabled {
 
 /* change color of dropdown links on hover */
 .dropdown_content a:hover {
-    background-color: #ddd;
+    background-color: #a0a0a0;
+    color: white;
 }
 
 /* show the dropdown menu on hover */
@@ -69,5 +72,9 @@ button.disabled {
 
 /* change the background color of the dropdown button when the dropdown content is shown */
 .dropdown:hover .dropbtn {
-    background-color: #f8cca9 !important;
+    background-color: #8e79b9;
+}
+
+.dropdown:hover #shapeTypeBtn {
+    color: white;
 }

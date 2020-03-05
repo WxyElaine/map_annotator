@@ -2,21 +2,23 @@
 
 $(function() {
     const NS = 'http://www.w3.org/2000/svg';
-    const HIGHLIGHT = "#febc9a";
+    const HIGHLIGHT = "#ffc30b";
     const WHITE = "#ffffff";
     const RED = "#f10000";
     const BLUE = "#4c4cff";
 
     const CIRCLE_RADIUS = 3;
-    const LINE_OFFSET = 15;
-    const LINE_WIDTH = 3;
+    const LINE_WIDTH = 4;
+    const LINE_LENGTH = 25;
 
     $(document).ready(function() {
+        var self = this;
+
         var title = document.getElementById("title");
 
         var selectedShape = "Point";
-        var addShapeBtn = document.getElementById("add");
-        var deleteShapeBtn = document.getElementById("delete");
+        this.addShapeBtn = document.getElementById("add");
+        this.deleteShapeBtn = document.getElementById("delete");
 
         var load = document.getElementById("load");
         var save = document.getElementById("save");
@@ -25,7 +27,7 @@ $(function() {
         var stage = document.getElementById("stage");
         
         var editor = new Editor();
-        var selector = new Selector(stage, editor);
+        var selector = new Selector(stage, editor, LINE_LENGTH);
 
         setEditorButtonStatus();
 
@@ -38,17 +40,21 @@ $(function() {
         input.type = 'file';
         input.addEventListener('change', function (event) {
             var file = input.files[0];
-            title.value = file.name.split('.')[0];
-            var reader = new FileReader();
-            reader.addEventListener('load', function (event) {
-                // read SVG file
-                var contents = event.target.result;
-                editor.setSVG(stage, new DOMParser().parseFromString(contents, 'image/svg+xml'));
-            }, false);
-            reader.readAsText(file);
-
-            form.reset();
-            setEditorButtonStatus();
+            if (file.name.split('.')[1] === 'svg') {
+                title.value = file.name.split('.')[0];
+                var reader = new FileReader();
+                reader.addEventListener('load', function (event) {
+                    // read SVG file
+                    var contents = event.target.result;
+                    editor.setSVG(stage, new DOMParser().parseFromString(contents, 'image/svg+xml'));
+                }, false);
+                reader.readAsText(file);
+    
+                form.reset();
+                setEditorButtonStatus();
+            } else {
+                alert("Please upload an SVG file!");
+            }
         });
         form.appendChild(input);
 
@@ -72,6 +78,7 @@ $(function() {
         clear.addEventListener('click', function () {
             editor.clear();
             setEditorButtonStatus();
+            title.value = "Please upload an SVG file";
         } );
 
         // EDITOR
@@ -82,7 +89,7 @@ $(function() {
             });
         }
 
-        addShapeBtn.addEventListener('click', function () {
+        this.addShapeBtn.addEventListener('click', function () {
             // add the selected shape
             if (selectedShape === "Point") {
                 addPoint(editor);
@@ -93,28 +100,33 @@ $(function() {
             }
         } );
 
-        deleteShapeBtn.addEventListener('click', function () {
+        this.deleteShapeBtn.addEventListener('click', function () {
             if (this.innerHTML === "Delete") {
                 // delete the selected shape
                 this.innerHTML = "EXIT";
                 this.style.backgroundColor = HIGHLIGHT;
+                self.addShapeBtn.disabled = true;
+                selector.enterDeleteMode();
                 if (selectedShape === "Point") {
-                    deletePoint(selector);
+                    alert("Click on the point you want to delete.");
                 } else if (selectedShape === "Pose") {
-                    deletePose(selector);
+                    alert("Click on the pose you want to delete.");
                 } else {
-                    deleteRegion(selector);
+                    alert("Click on the region you want to delete.");
                 }
             } else {
                 // exit the delete mode
                 this.innerHTML = "Delete";
                 this.style.backgroundColor = WHITE;
+                self.addShapeBtn.disabled = false;
+                selector.exitDeleteMode();
             }
         } );
     });
 
     function addPoint(editor) {
         var circle = document.createElementNS(NS, 'circle');
+        circle.setAttribute('class', 'circle_annotation');
         circle.setAttribute('cx', parseNumber(editor.getWidth() / 2));
         circle.setAttribute('cy', parseNumber(editor.getHeight() / 2));
         circle.setAttribute('r', CIRCLE_RADIUS);
@@ -123,13 +135,9 @@ $(function() {
         editor.addElement(circle);
     }
 
-    function deletePoint(selector) {
-        // TODO: change this to a popup
-        console.log("Clike on the point you want to delete.");
-        selector.enterDeleteMode();
-    }
-
     function addPose(editor) {
+        // TODO: change this to a popup
+        alert("Press \"SHIFT\" and click & drag to change orientation.");
         // arrow head
         var arrowhead = document.createElementNS(NS, 'polygon');
         arrowhead.style.fill = BLUE;
@@ -145,25 +153,18 @@ $(function() {
         editor.addElement(arrowmarker);
         // arrow body
         var line = document.createElementNS(NS, 'line');
+        line.setAttribute('class', 'pose_line_annotation');
         line.setAttribute('x1', parseNumber(editor.getWidth() / 2));
-        line.setAttribute('x2', parseNumber(editor.getWidth() / 2) - LINE_OFFSET);
         line.setAttribute('y1', parseNumber(editor.getHeight() / 2));
-        line.setAttribute('y2', parseNumber(editor.getHeight() / 2) - LINE_OFFSET);
+        line.setAttribute('x2', parseNumber(editor.getWidth() / 2) + LINE_LENGTH);
+        line.setAttribute('y2', parseNumber(editor.getHeight() / 2));
         line.setAttribute('marker-end', "url(#arrowhead)");
         line.style.stroke = BLUE;
         line.style.strokeWidth = LINE_WIDTH;
         editor.addElement(line);
     }
 
-    function deletePose(selector) {
-        
-    }
-
     function addRegion(editor) {
-
-    }
-
-    function deleteRegion(selector) {
 
     }
 
