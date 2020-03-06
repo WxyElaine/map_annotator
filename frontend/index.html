@@ -5,14 +5,12 @@
   	<meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
-
     <link rel="stylesheet" href="index.css">
 
 
+    <script src="utils.js"></script>
     <script src="Editor.js"></script>
     <script src="Selector.js"></script>
-
-
     <script src="index.js"></script>
 
 	<title>Map Annotator</title>
@@ -21,6 +19,11 @@
 <body>
     <div id="tools">
         <input id="title" value="Please upload an SVG file" style="width:100%"></input>
+        <div id="fileBtns">
+            <button id="load">Load</button>
+            <button id="save" class="editorBtn">Save</button>
+            <button id="clear" class="editorBtn">Clear</button>
+        </div>
         <div id="shapeBtns">
             <div class="dropdown">
                 <button id="shapeTypeBtn" class="dropbtn">Point</button>
@@ -33,11 +36,10 @@
             <button id="add" class="editorBtn">Add</button>
             <button id="delete" class="editorBtn">Delete</button>
         </div>
-
-        <div id="fileBtns">
-            <button id="load">Load</button>
-            <button id="save" class="editorBtn">Save</button>
-            <button id="clear" class="editorBtn">Clear</button>
+        <div id="regionShapeBtns" style="display:none">
+            <button id="addEndpoint" class="editorBtn regionShapeBtn">Add Endpoint</button>
+            <button id="deleteEndpoint" class="editorBtn regionShapeBtn">Delete Endpoint</button>
+            <button id="exitRegionEditor" class="editorBtn regionShapeBtn">EXIT</button>
         </div>
     </div>
     <div id="content">

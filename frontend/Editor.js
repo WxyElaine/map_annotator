@@ -5,12 +5,12 @@ class Editor {
 		this.height = "";
 	}
 
-	getWidth() {
-		return this.width;
+	getMidpointX() {
+		return parseFloat(this.width) / 2;
 	}
 
-	getHeight() {
-		return this.height;
+	getMidpointY() {
+		return parseFloat(this.height) / 2;
 	}
 
 	setSVG(svg, svgFileContent) {	
@@ -39,7 +39,7 @@ class Editor {
 	toString() {
 		return [
 			'<?xml version="1.0" encoding="UTF-8"?>\n',
-			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + this.svg.width + ' ' + this.svg.height + '\">\n',
+			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + this.width + ' ' + this.height + '\">\n',
 			this.svg.innerHTML,
 			'</svg>'
 		].join('');
