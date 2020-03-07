@@ -1,12 +1,16 @@
 class Selector {
-	constructor(stage, editor, lineLength) {
+	constructor(stage, editor, lineLength, labelPadding) {
+		this.REGION_HIGHLIGHT = "#ffe34c";
+
 		var self = this;
 
 		this.selected = null;
-		this.inDeleteMode = false;
+		this.inShapeDeleteMode = false;
+		this.inEndpointDeleteMode = false;
 		this.typeToDelete = "";
 		this.editor = editor;
 		var lineLength = lineLength;
+		var labelPadding = labelPadding;
 
 		var selection = document.createElement('span');
 		selection.style.position = 'absolute';
@@ -18,6 +22,8 @@ class Selector {
 		var offset = { x: 0, y: 0 };
 		var angleOffset = 0;  // angle offset for pose orientation (in radians)
 		this.selectedRegion = null;
+		this.deletedRegionIds = [];
+		var regionReferencePoint = { x: 0, y: 0 };
 
 		function updateSelection(element) {
 			if (element.isSameNode(stage)) {
@@ -53,12 +59,13 @@ class Selector {
 					offset.y = parseFloat(y1) - event.clientY;
 					angleOffset = Math.atan2(target.getAttribute('y2') - y1, target.getAttribute('x2') - x1);
 				} else if (targetType === 'region_annotation') {
-					// DEBUG
-					offset.x = parseFloat(target.parentElement.childNodes[1].getAttribute('cx')) - event.clientX; //event.clientX;
-					offset.y = parseFloat(target.parentElement.childNodes[1].getAttribute('cy')) - event.clientY; //event.clientY;
-					// offset.x = event.clientX;
-					// offset.y = event.clientY;
-					console.log(offset.x + " " + offset.y);
+					var referenceGroup = target.parentElement;
+					var referencePointElement = referenceGroup.childNodes[2];
+					var translate = getTranslate(referenceGroup.getAttribute('transform'));
+					regionReferencePoint.x = parseFloat(referencePointElement.getAttribute('cx'));
+					regionReferencePoint.y = parseFloat(referencePointElement.getAttribute('cy'));
+					offset.x = regionReferencePoint.x + translate[0] - event.clientX;
+					offset.y = regionReferencePoint.y + translate[1] - event.clientY;
 				} else if (targetType === 'region_endpoint_annotation') {
 					offset.x = parseFloat(target.getAttribute('cx')) - event.clientX;
 					offset.y = parseFloat(target.getAttribute('cy')) - event.clientY;
@@ -70,46 +77,42 @@ class Selector {
 		window.addEventListener('mousemove', function (event) {
 			if (self.selected) {
 				var targetType = self.selected.getAttribute('class');
+				var label = getLabelElement(self.selected);
+				var newOffsetX = event.clientX + offset.x;
+				var newOffsetY = event.clientY + offset.y;
 				if (targetType === 'circle_annotation') {
-					self.selected.setAttribute('cx', event.clientX + offset.x);
-					self.selected.setAttribute('cy', event.clientY + offset.y);
+					self.selected.setAttribute('cx', newOffsetX);
+					self.selected.setAttribute('cy', newOffsetY);
+					label.setAttribute('x', newOffsetX);
+					label.setAttribute('y', newOffsetY + labelPadding);
 				} else if (targetType === 'pose_line_annotation') {
-					var x1, y1;
 					if (event.shiftKey === false) {
-						x1 = event.clientX + offset.x;
-						y1 = event.clientY + offset.y;
-						self.selected.setAttribute('x1', x1);
-						self.selected.setAttribute('y1', y1);
+						self.selected.setAttribute('x1', newOffsetX);
+						self.selected.setAttribute('y1', newOffsetY);
+						label.setAttribute('x', newOffsetX);
+						label.setAttribute('y', newOffsetY + lineLength + labelPadding);
 					} else {  // right click, change the arrow orientation
-						x1 = parseFloat(self.selected.getAttribute('x1'));
-						y1 = parseFloat(self.selected.getAttribute('y1'));
-						var x2_cursor = event.clientX + offset.x;
-						var y2_cursor = event.clientY + offset.y;
-						angleOffset = Math.atan2(y2_cursor - y1, x2_cursor - x1);
+						var x1 = parseFloat(self.selected.getAttribute('x1'));
+						var y1 = parseFloat(self.selected.getAttribute('y1'));
+						angleOffset = Math.atan2(newOffsetY - y1, newOffsetX - x1);
+						newOffsetX = x1;
+						newOffsetY = y1;
 					}
-					self.selected.setAttribute('x2', x1 + lineLength * Math.cos(angleOffset));
-					self.selected.setAttribute('y2', y1 + lineLength * Math.sin(angleOffset));
+					self.selected.setAttribute('x2', newOffsetX + lineLength * Math.cos(angleOffset));
+					self.selected.setAttribute('y2', newOffsetY + lineLength * Math.sin(angleOffset));
 				} else if (targetType === 'region_annotation') {
-					// DEBUG
-					var translateStr = self.selected.parentElement.getAttribute('transform');
-					var translate = translateStr.substring(10, translateStr.length - 1);
-					var translateX = parseInt(translate.split(",")[0]);
-					var translateY = parseInt(translate.split(",")[1]);
-					var newOffsetX = event.clientX + offset.x - editor.getMidpointX();
-					var newOffsetY = event.clientY + offset.y - editor.getMidpointY();
-					this.console.log(newOffsetX + ", " + newOffsetY);
-					self.selected.parentElement.setAttribute('transform', 'translate(' + newOffsetX + ',' + newOffsetY + ')');
+					var newTranslateX = newOffsetX - regionReferencePoint.x;
+					var newTranslateY = newOffsetY - regionReferencePoint.y;
+					self.selected.parentElement.setAttribute('transform', 'translate(' + newTranslateX + ',' + newTranslateY + ')');
 				} else if (targetType === 'region_endpoint_annotation') {
 					// move the endpoint
-					var newX = event.clientX + offset.x;
-					var newY = event.clientY + offset.y;
-					self.selected.setAttribute('cx', newX);
-					self.selected.setAttribute('cy', newY);
+					self.selected.setAttribute('cx', newOffsetX);
+					self.selected.setAttribute('cy', newOffsetY);
 					// adjust the line
-					var currentRegion = self.selected.parentElement.childNodes[0];
+					var currentRegion = self.selected.parentElement.childNodes[1];
 					var points = convertToList(currentRegion.getAttribute('points'));
 					var selectedEndpointId = parseInt(self.selected.getAttribute('id').split("-")[1]);
-					points[selectedEndpointId] = [newX, newY];
+					points[selectedEndpointId] = [newOffsetX, newOffsetY];
 					currentRegion.setAttribute('points', convertToString(points));
 				}
 				updateSelection(self.selected);
@@ -124,38 +127,90 @@ class Selector {
 			var target = event.target;
 			if (target.isSameNode(stage) === false) {
 				var targetType = target.getAttribute('class');
-				if (self.inDeleteMode && targetType === self.typeToDelete) {
-					// DELETE
+				if (self.inShapeDeleteMode && targetType === self.typeToDelete) {
+					// DELETE shape
 					if (targetType === 'circle_annotation' || targetType === 'pose_line_annotation') {
-						self.editor.deleteElement(target);
+						self.editor.deleteElement(target.parentElement);
+					} else if (targetType === 'region_annotation') {
+						self.deletedRegionIds.push(getRegionId(target));
+						self.editor.deleteElement(target.parentElement);
 					}
 				} else if (targetType === 'region_annotation') {
+					// edit selected region
 					self.enterRegionEditor(target);
+				} else if (self.inEndpointDeleteMode && event.shiftKey === true) {
+					// DELETE endpoint
+					var group = target.parentElement;
+					var region = group.childNodes[1];
+					var points = convertToList(region.getAttribute('points'));
+					if (points.length === 3) {  // delete the entire region
+						self.deletedRegionIds.push(getRegionId(group.childNodes[2]));
+						self.editor.deleteElement(group);
+					} else {  // delete the point
+						self.editor.deleteElementOfGroup(group, target);
+						var selectedEndpointId = parseInt(target.getAttribute('id').split("-")[1]);
+						points.splice(selectedEndpointId, 1);
+						region.setAttribute('points', convertToString(points));
+						// update endpoint ids
+						var regionId = getRegionId(region);
+						for (var i = 2; i < group.childNodes.length; i++) {
+							var newId = i - 2;
+							group.childNodes[i].setAttribute('id', regionId + "-" + newId);
+						}
+					}
+				} else if (targetType === 'text_annotation') {
+					var newLabel = prompt("Please enter the label name:", target.textContent);
+					if (newLabel != "") {
+						target.textContent = newLabel;
+					}
 				}
 			}
 		});
 	}
 
-	enterDeleteMode(typeToDelete) {
-		this.inDeleteMode = true;
+	enterShapeDeleteMode(typeToDelete) {
+		this.inShapeDeleteMode = true;
 		this.typeToDelete = typeToDelete;
 	}
 
-	exitDeleteMode() {
-		this.inDeleteMode = false;
+	exitShapeDeleteMode() {
+		this.inShapeDeleteMode = false;
 		this.typeToDelete = "";
+		var result = [];
+		if (this.deletedRegionIds.length > 0) {
+			result = this.deletedRegionIds;
+			this.deletedRegionIds = [];
+		}
+		return result;
 	}
 
 	enterRegionEditor(target) {
-		window.document.getElementById("regionShapeBtns").style.display = "block";
+		window.document.getElementById("regionShapeBtns").style.visibility = "visible";
 		$(':button:not(.regionShapeBtn)').prop('disabled', true);
+		// de-highlight the previously selected region
+		if (this.selectedRegion) {
+			this.selectedRegion.style.fill = 'transparent';
+		}
+		// highlight the selected region
 		this.selectedRegion = target;
+		this.selectedRegion.style.fill = this.REGION_HIGHLIGHT;
+		this.selectedRegion.style.fillOpacity = "0.5";		
 	}
 
 	exitRegionEditor() {
-		window.document.getElementById("regionShapeBtns").style.display = "none";
+		window.document.getElementById("regionShapeBtns").style.visibility = "hidden";
 		$(':button:not(.regionShapeBtn)').prop('disabled', false);
+		// de-highlight the selected region
+		this.selectedRegion.style.fill = 'transparent';
 		this.selectedRegion = null;
+	}
+
+	enterEndpointDeleteMode() {
+		this.inEndpointDeleteMode = true;
+	}
+
+	exitEndpointDeleteMode() {
+		this.inEndpointDeleteMode = false
 	}
 
 	getSelectedRegion() {

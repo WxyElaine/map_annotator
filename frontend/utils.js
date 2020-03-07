@@ -22,3 +22,21 @@ function convertToList(stringOfPoints) {
 function getRandomInteger(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
 }
+
+function getTranslate(translateStr) {
+    // return the translate in the form of: [x, y]
+    var translate = translateStr.substring(10, translateStr.length - 1);
+    var translateArr = translate.split(",");
+    return [parseInt(translateArr[0]), parseInt(translateArr[1])];
+}
+
+function getRegionId(selectedRegion) {
+    // return the region id of the selected region
+    var referencePointElement = selectedRegion.parentElement.childNodes[2];
+	return parseInt(referencePointElement.getAttribute('id').split("-")[0]);
+}
+
+function getLabelElement(element) {
+    // given a shape element, return the label of it
+    return element.parentElement.childNodes[0];
+}

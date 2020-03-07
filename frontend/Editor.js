@@ -32,6 +32,10 @@ class Editor {
 		this.svg.removeChild(element);
 	}
 
+	deleteElementOfGroup(g, element) {
+		g.removeChild(element);
+	}
+
 	clear() {
 		this.svg.textContent = '';
 	}

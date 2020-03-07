@@ -8,16 +8,19 @@ $(function() {
     const BLUE = "#4c4cff";
     const YELLOW = "#ffd700";
     const DARK_YELLOW = "#998100";
+    const LABEL_FONT_SIZE = "15px";
 
     const CIRCLE_RADIUS = 3.5;
     const LINE_WIDTH = 4;
     const LINE_LENGTH = 25;
     const INITIAL_REGION_SIZE = 50;
+    const LABEL_PADDING = 25;
 
     var midpointX = 0;
     var midpointY = 0;
 
-    var regionNum = 0;
+    var regionCount = -1;
+    var unusedRegionId = [];
 
     $(document).ready(function() {
         var self = this;
@@ -39,7 +42,7 @@ $(function() {
         var stage = document.getElementById("stage");
         
         var editor = new Editor();
-        this.selector = new Selector(stage, editor, LINE_LENGTH);
+        this.selector = new Selector(stage, editor, LINE_LENGTH, LABEL_PADDING);
 
         setEditorButtonStatus();
 
@@ -117,20 +120,19 @@ $(function() {
         this.deleteShapeBtn.addEventListener('click', function () {
             if (this.innerHTML === "Delete") {
                 // delete the selected shape
-                this.innerHTML = "EXIT";
+                this.innerHTML = "DONE";
                 this.style.backgroundColor = HIGHLIGHT;
                 self.addShapeBtn.disabled = true;
                 self.shapeTypeBtn.disabled = true;
                 if (selectedShape === "Point") {
                     alert("Click on the point you want to delete.");
-                    self.selector.enterDeleteMode("circle_annotation");
+                    self.selector.enterShapeDeleteMode("circle_annotation");
                 } else if (selectedShape === "Pose") {
                     alert("Click on the pose you want to delete.");
-                    self.selector.enterDeleteMode("pose_line_annotation");
-                } else {
+                    self.selector.enterShapeDeleteMode("pose_line_annotation");
+                } else {  // Region
                     alert("Click on the region you want to delete.");
-                    // self.selector.enterDeleteMode();
-                    // regionNum--;
+                    self.selector.enterShapeDeleteMode("region_annotation");
                 }
             } else {
                 // exit the delete mode
@@ -138,7 +140,7 @@ $(function() {
                 this.style.backgroundColor = WHITE;
                 self.addShapeBtn.disabled = false;
                 self.shapeTypeBtn.disabled = false;
-                self.selector.exitDeleteMode();
+                unusedRegionId = unusedRegionId.concat(self.selector.exitShapeDeleteMode());
             }
         });
 
@@ -149,12 +151,28 @@ $(function() {
             var newPoint = getNewEndpoint(prevPoints);
             selectedRegion.setAttribute('points', stringOfPrevPoints + " " + newPoint[0] + "," + newPoint[1]);
             // mark the new end point with a circle
-            var circle = makeCircle(prevPoints.length, 'region_endpoint_annotation', newPoint[0], newPoint[1], DARK_YELLOW);
+            var regionId = getRegionId(selectedRegion);
+            var circle = makeCircle(regionId, prevPoints.length, 'region_endpoint_annotation', newPoint[0], newPoint[1], DARK_YELLOW);
             selectedRegion.parentElement.appendChild(circle);
         });
 
         this.deleteEndpoint.addEventListener('click', function() {
-
+            if (this.innerHTML === "Delete Endpoint") {
+                alert("Press \"SHIFT\" and click on the endpoint to delete it.");
+                // delete the selected endpoint
+                this.innerHTML = "DONE";
+                this.style.backgroundColor = HIGHLIGHT;
+                self.addEndpoint.disabled = true;
+                self.exitRegionEditor.disabled = true;
+                self.selector.enterEndpointDeleteMode();
+            } else {
+                // exit the endpoint delete mode
+                this.innerHTML = "Delete Endpoint";
+                this.style.backgroundColor = WHITE;
+                self.addEndpoint.disabled = false;
+                self.exitRegionEditor.disabled = false;
+                self.selector.exitEndpointDeleteMode();
+            }
         });
 
         this.exitRegionEditor.addEventListener('click', function() {
@@ -163,13 +181,20 @@ $(function() {
     });
 
     function addPoint(editor) {
-        var circle = makeCircle(-1, 'circle_annotation', midpointX, midpointY, RED);
-        editor.addElement(circle);
+        var pointGroup = document.createElementNS(NS, 'g');
+        var label = makeLabel(midpointX, midpointY + LABEL_PADDING, RED, 'Point');
+        pointGroup.appendChild(label);
+        var circle = makeCircle(-1, -1, 'circle_annotation', midpointX, midpointY, RED);
+        pointGroup.appendChild(circle);
+        editor.addElement(pointGroup);
     }
 
     function addPose(editor) {
         // TODO: change this to a popup
         alert("Press \"SHIFT\" and click & drag to change orientation.");
+        var poseGroup = document.createElementNS(NS, 'g');
+        var label = makeLabel(midpointX, midpointY + LINE_LENGTH + LABEL_PADDING, BLUE, 'Pose');
+        poseGroup.appendChild(label);
         // arrow head
         var arrowhead = document.createElementNS(NS, 'polygon');
         arrowhead.style.fill = BLUE;
@@ -193,15 +218,24 @@ $(function() {
         line.setAttribute('marker-end', "url(#arrowhead)");
         line.style.stroke = BLUE;
         line.style.strokeWidth = LINE_WIDTH;
-        editor.addElement(line);
+        poseGroup.appendChild(line);
+        editor.addElement(poseGroup);
     }
 
     function addRegion(editor) {
-        regionNum++;
+        var regionId;
+        if (unusedRegionId.length > 0) {
+            regionId = unusedRegionId.pop();
+        } else {
+            regionCount++;
+            regionId = regionCount;
+        }
         // TODO: change this to a popup
-        // alert("Click "Add" button to add regions");
+        alert("Click \"Add\" button to add regions, click on the region to edit it");
         var regionGroup = document.createElementNS(NS, 'g');
         regionGroup.setAttribute("transform", "translate(0, 0)");
+        var label = makeLabel(midpointX, midpointY - LABEL_PADDING, DARK_YELLOW, 'Region');
+        regionGroup.appendChild(label);
         // add a triangle to start
         var basicRegion = document.createElementNS(NS, 'polygon');
         var points = [[midpointX, midpointY], [midpointX + INITIAL_REGION_SIZE, midpointY], 
@@ -215,16 +249,28 @@ $(function() {
         // mark end points with circles
         for (var i = 0; i < points.length; i++) {
             var point = points[i];
-            var circle = makeCircle(i, 'region_endpoint_annotation', point[0], point[1], DARK_YELLOW);
+            var circle = makeCircle(regionId, i, 'region_endpoint_annotation', point[0], point[1], DARK_YELLOW);
             regionGroup.appendChild(circle);
         }
         editor.addElement(regionGroup);
     }
+    
+    function makeLabel(x, y, color, defaultText) {
+        var label = document.createElementNS(NS, 'text');
+        label.setAttribute('class', 'text_annotation');
+        label.setAttribute('x', x);
+        label.setAttribute('y', y);
+        label.setAttribute('font-size', LABEL_FONT_SIZE);
+        label.style.stroke = color;
+        label.style.fill = color;
+        label.textContent = defaultText;
+        return label;
+    }
 
-    function makeCircle(id, className, cx, cy, color) {
+    function makeCircle(regionId, pointId, className, cx, cy, color) {
         var circle = document.createElementNS(NS, 'circle');
-        if (id >= 0) {  // add an id number to the circle
-            circle.setAttribute('id', regionNum + "-" + id);
+        if (regionId >= 0) {  // add an id number to the circle
+            circle.setAttribute('id', regionId + "-" + pointId);
         }
         circle.setAttribute('class', className);
         circle.setAttribute('cx', cx);
