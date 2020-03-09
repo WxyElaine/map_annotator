@@ -160,7 +160,7 @@ class Selector {
 					}
 				} else if (targetType === 'text_annotation') {
 					var newLabel = prompt("Please enter the label name:", target.textContent);
-					if (newLabel != "") {
+					if (newLabel != null && newLabel != "") {
 						target.textContent = newLabel;
 					}
 				}
